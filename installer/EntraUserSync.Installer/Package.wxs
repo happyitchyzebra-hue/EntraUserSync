@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <!-- Fixed UpgradeCode for all EntraUserSync MSI builds. -->
+  <?define UpgradeCode = "B7E2C1A4-9F3D-4E8B-A1C6-5D2E9F4A7B30" ?>
+  <?define ProductName = "EntraUserSync" ?>
+  <?define Manufacturer = "EntraUserSync" ?>
+
+  <Package Name="$(var.ProductName)"
+           Manufacturer="$(var.Manufacturer)"
+           Version="!(bind.FileVersion.EntraUserSync.exe)"
+           UpgradeCode="$(var.UpgradeCode)"
+           Scope="perMachine"
+           Language="1033">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed."
+                  Schedule="afterInstallInitialize" />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <Property Id="TENANTID" Secure="yes" />
+    <Property Id="CLIENTID" Secure="yes" />
+    <Property Id="CERTTHUMBPRINT" Secure="yes" />
+    <Property Id="CERTSTORE" Secure="yes" />
+    <Property Id="CLOUD" Secure="yes" />
+    <Property Id="FIELDMAPPINGS" Secure="yes" />
+    <Property Id="ALLOWEDUPNSUFFIXES" Secure="yes" />
+    <Property Id="SYNCINTERVALMINUTES" Secure="yes" />
+    <Property Id="CLEARWHENEMPTY" Secure="yes" />
+    <Property Id="REMOVECONFIG" Secure="yes" />
+
+    <Property Id="SAVED_TENANTID">
+      <RegistrySearch Id="FindTenantId" Root="HKLM" Key="SOFTWARE\EntraUserSync" Name="TenantId" Type="raw" />
+    </Property>
+    <Property Id="SAVED_CLIENTID">
+      <RegistrySearch Id="FindClientId" Root="HKLM" Key="SOFTWARE\EntraUserSync" Name="ClientId" Type="raw" />
+    </Property>
+    <Property Id="SAVED_CERTTHUMBPRINT">
+      <RegistrySearch Id="FindCertThumb" Root="HKLM" Key="SOFTWARE\EntraUserSync" Name="CertificateThumbprint" Type="raw" />
+    </Property>
+    <Property Id="SAVED_CERTSTORE">
+      <RegistrySearch Id="FindCertStore" Root="HKLM" Key="SOFTWARE\EntraUserSync" Name="CertificateStore" Type="raw" />
+    </Property>
+    <Property Id="SAVED_CLOUD">
+      <RegistrySearch Id="FindCloud" Root="HKLM" Key="SOFTWARE\EntraUserSync" Name="Cloud" Type="raw" />
+    </Property>
+    <Property Id="SAVED_FIELDMAPPINGS">
+      <RegistrySearch Id="FindMappings" Root="HKLM" Key="SOFTWARE\EntraUserSync" Name="FieldMappings" Type="raw" />
+    </Property>
+    <Property Id="SAVED_ALLOWEDUPNSUFFIXES">
+      <RegistrySearch Id="FindSuffixes" Root="HKLM" Key="SOFTWARE\EntraUserSync" Name="AllowedUpnSuffixes" Type="raw" />
+    </Property>
+    <Property Id="SAVED_SYNCINTERVALMINUTES">
+      <RegistrySearch Id="FindInterval" Root="HKLM" Key="SOFTWARE\EntraUserSync" Name="SyncIntervalMinutes" Type="raw" />
+    </Property>
+    <Property Id="SAVED_CLEARWHENEMPTY">
+      <RegistrySearch Id="FindClear" Root="HKLM" Key="SOFTWARE\EntraUserSync" Name="ClearFieldWhenEmpty" Type="raw" />
+    </Property>
+
+    <SetProperty Id="TENANTID" Value="[SAVED_TENANTID]" After="AppSearch" Sequence="both" Condition="NOT TENANTID AND SAVED_TENANTID" />
+    <SetProperty Id="CLIENTID" Value="[SAVED_CLIENTID]" After="AppSearch" Sequence="both" Condition="NOT CLIENTID AND SAVED_CLIENTID" />
+    <SetProperty Id="CERTTHUMBPRINT" Value="[SAVED_CERTTHUMBPRINT]" After="AppSearch" Sequence="both" Condition="NOT CERTTHUMBPRINT AND SAVED_CERTTHUMBPRINT" />
+    <SetProperty Id="CERTSTORE" Value="[SAVED_CERTSTORE]" After="AppSearch" Sequence="both" Condition="NOT CERTSTORE AND SAVED_CERTSTORE" />
+    <SetProperty Id="CLOUD" Value="[SAVED_CLOUD]" After="AppSearch" Sequence="both" Condition="NOT CLOUD AND SAVED_CLOUD" />
+    <SetProperty Id="FIELDMAPPINGS" Value="[SAVED_FIELDMAPPINGS]" After="AppSearch" Sequence="both" Condition="NOT FIELDMAPPINGS AND SAVED_FIELDMAPPINGS" />
+    <SetProperty Id="ALLOWEDUPNSUFFIXES" Value="[SAVED_ALLOWEDUPNSUFFIXES]" After="AppSearch" Sequence="both" Condition="NOT ALLOWEDUPNSUFFIXES AND SAVED_ALLOWEDUPNSUFFIXES" />
+    <SetProperty Id="SYNCINTERVALMINUTES" Value="[SAVED_SYNCINTERVALMINUTES]" After="AppSearch" Sequence="both" Condition="NOT SYNCINTERVALMINUTES AND SAVED_SYNCINTERVALMINUTES" />
+    <SetProperty Id="CLEARWHENEMPTY" Value="[SAVED_CLEARWHENEMPTY]" After="AppSearch" Sequence="both" Condition="NOT CLEARWHENEMPTY AND SAVED_CLEARWHENEMPTY" />
+
+    <!-- Agent runs as the logged-on user → default CurrentUser certificate store. -->
+    <SetProperty Id="CERTSTORE" Value="CurrentUser" After="AppSearch" Sequence="both" Condition="NOT CERTSTORE" />
+    <SetProperty Id="CLOUD" Value="Global" After="AppSearch" Sequence="both" Condition="NOT CLOUD" />
+    <SetProperty Id="FIELDMAPPINGS" Value="department=2;jobTitle=3" After="AppSearch" Sequence="both" Condition="NOT FIELDMAPPINGS" />
+    <SetProperty Id="SYNCINTERVALMINUTES" Value="240" After="AppSearch" Sequence="both" Condition="NOT SYNCINTERVALMINUTES" />
+    <SetProperty Id="CLEARWHENEMPTY" Value="0" After="AppSearch" Sequence="both" Condition="NOT CLEARWHENEMPTY" />
+
+    <Feature Id="ProductFeature" Title="EntraUserSync" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentGroupRef Id="DataFolderComponents" />
+      <ComponentGroupRef Id="RegistryComponents" />
+    </Feature>
+
+    <ui:WixUI Id="WixUI_Minimal" />
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+
+    <!--
+      Run as the logged-on user via Task Scheduler (InteractiveToken / S-1-5-4),
+      NOT as a LocalSystem Windows Service.
+    -->
+    <CustomAction Id="RegisterLogonTaskExe"
+                  Directory="INSTALLFOLDER"
+                  ExeCommand="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER]Register-LogonTask.ps1&quot; -ExePath &quot;[INSTALLFOLDER]EntraUserSync.exe&quot;"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="check" />
+
+    <CustomAction Id="UnregisterLogonTask"
+                  Directory="INSTALLFOLDER"
+                  ExeCommand="cmd.exe /c schtasks /Delete /TN &quot;EntraUserSync&quot; /F"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="ignore" />
+
+    <CustomAction Id="CleanupConfig"
+                  Directory="ProgramDataEntraUserSync"
+                  ExeCommand="cmd.exe /c if &quot;[REMOVECONFIG]&quot;==&quot;1&quot; rd /s /q &quot;[ProgramDataEntraUserSync]&quot;"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="ignore" />
+
+    <InstallExecuteSequence>
+      <Custom Action="UnregisterLogonTask" Before="RegisterLogonTaskExe" Condition="NOT REMOVE" />
+      <Custom Action="RegisterLogonTaskExe" After="InstallFiles" Condition="NOT REMOVE" />
+      <Custom Action="UnregisterLogonTask" After="InstallInitialize" Condition="REMOVE=&quot;ALL&quot;" />
+      <Custom Action="CleanupConfig" After="RemoveFiles" Condition="REMOVE=&quot;ALL&quot; AND REMOVECONFIG=&quot;1&quot;" />
+    </InstallExecuteSequence>
+  </Package>
+
+  <Fragment>
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="EntraUserSync" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="ProgramDataEntraUserSync" Name="EntraUserSync">
+        <Directory Id="ProgramDataEntraUserSyncLogs" Name="logs" />
+      </Directory>
+    </StandardDirectory>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Component Id="SvcExecutable" Guid="6C2E8F41-1A57-4C9D-9B2E-8D1F3A4B5C60">
+        <File Id="EntraUserSync.exe"
+              Source="$(ServicePublishDir)EntraUserSync.exe"
+              KeyPath="yes"
+              Checksum="yes" />
+      </Component>
+      <Component Id="TaskScript" Guid="7D3F9A52-2B68-4D0E-AC3F-9E2A4B5C6D71">
+        <File Id="RegisterLogonTaskPs1"
+              Source="Register-LogonTask.ps1"
+              KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="DataFolderComponents" Directory="ProgramDataEntraUserSync">
+      <Component Id="DataFolder" Guid="0F1E2D3C-4B5A-6978-8A9B-0C1D2E3F4A5B" Permanent="yes">
+        <CreateFolder>
+          <util:PermissionEx User="SYSTEM" GenericAll="yes" />
+          <util:PermissionEx User="Administrators" GenericAll="yes" />
+          <util:PermissionEx User="Users" GenericRead="yes" GenericWrite="yes" />
+        </CreateFolder>
+        <RegistryValue Root="HKLM"
+                       Key="SOFTWARE\EntraUserSync"
+                       Name="DataFolderInstalled"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+
+      <Component Id="LogsFolder" Guid="11223344-5566-7788-99AA-BBCCDDEEFF00" Directory="ProgramDataEntraUserSyncLogs" Permanent="yes">
+        <CreateFolder>
+          <util:PermissionEx User="SYSTEM" GenericAll="yes" />
+          <util:PermissionEx User="Administrators" GenericAll="yes" />
+          <util:PermissionEx User="Users" GenericRead="yes" GenericWrite="yes" />
+        </CreateFolder>
+        <RegistryValue Root="HKLM"
+                       Key="SOFTWARE\EntraUserSync"
+                       Name="LogsFolderInstalled"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="RegistryComponents" Directory="INSTALLFOLDER">
+      <Component Id="AppSettingsRegistry" Guid="99887766-5544-3322-1100-AABBCCDDEEFF">
+        <RegistryKey Root="HKLM" Key="SOFTWARE\EntraUserSync">
+          <RegistryValue Name="TenantId" Type="string" Value="[TENANTID]" />
+          <RegistryValue Name="ClientId" Type="string" Value="[CLIENTID]" />
+          <RegistryValue Name="CertificateThumbprint" Type="string" Value="[CERTTHUMBPRINT]" />
+          <RegistryValue Name="CertificateStore" Type="string" Value="[CERTSTORE]" />
+          <RegistryValue Name="Cloud" Type="string" Value="[CLOUD]" />
+          <RegistryValue Name="FieldMappings" Type="string" Value="[FIELDMAPPINGS]" />
+          <RegistryValue Name="AllowedUpnSuffixes" Type="string" Value="[ALLOWEDUPNSUFFIXES]" />
+          <RegistryValue Name="SyncIntervalMinutes" Type="string" Value="[SYNCINTERVALMINUTES]" />
+          <RegistryValue Name="ClearFieldWhenEmpty" Type="string" Value="[CLEARWHENEMPTY]" />
+          <RegistryValue Name="InstallPath" Type="string" Value="[INSTALLFOLDER]" />
+          <RegistryValue Name="RunAs" Type="string" Value="LoggedOnUser" />
+          <RegistryValue Name="LogonTask" Type="string" Value="EntraUserSync" />
+          <util:PermissionEx User="Users" GenericRead="yes" />
+          <util:PermissionEx User="Administrators" GenericAll="yes" />
+          <util:PermissionEx User="SYSTEM" GenericAll="yes" />
+        </RegistryKey>
+      </Component>
+
+      <Component Id="StatusKey" Guid="D4E5F6A7-B8C9-0123-DEF0-234567890ABC">
+        <RegistryKey Root="HKLM" Key="SOFTWARE\EntraUserSync\Status">
+          <RegistryValue Name="Initialized" Type="string" Value="" KeyPath="yes" />
+          <util:PermissionEx User="Users" GenericAll="yes" />
+          <util:PermissionEx User="Administrators" GenericAll="yes" />
+          <util:PermissionEx User="SYSTEM" GenericAll="yes" />
+        </RegistryKey>
+      </Component>
+
+      <!-- Let the user-context agent write Datto CustomN values without running as SYSTEM. -->
+      <Component Id="CentraStageKey" Guid="C3D4E5F6-A7B8-9012-CDEF-1234567890AB">
+        <RegistryKey Root="HKLM" Key="SOFTWARE\CentraStage">
+          <RegistryValue Name="EntraUserSyncAcl" Type="integer" Value="1" KeyPath="yes" />
+          <util:PermissionEx User="Users" GenericRead="yes" GenericWrite="yes" CreateChild="yes" DeleteChild="yes" />
+          <util:PermissionEx User="Administrators" GenericAll="yes" />
+          <util:PermissionEx User="SYSTEM" GenericAll="yes" />
+        </RegistryKey>
+      </Component>
+
+      <Component Id="EventLogSource" Guid="AABBCCDD-EEFF-0011-2233-445566778899">
+        <util:EventSource
+            Name="EntraUserSync"
+            Log="Application"
+            EventMessageFile="[INSTALLFOLDER]EntraUserSync.exe" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>
