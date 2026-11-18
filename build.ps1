@@ -131,7 +131,9 @@ if ($SkipMsi) {
     return
 }
 
-if (-not $IsWindows) {
+# Windows PowerShell 5.1 does not define $IsWindows (it's $null → -not $null is $true).
+$isWindowsHost = ($env:OS -eq 'Windows_NT') -or ($IsWindows -eq $true)
+if (-not $isWindowsHost) {
     Write-Host 'WiX MSI build requires Windows. Published exe only.' -ForegroundColor Yellow
     Write-Host "Published: $exePath"
     return
