@@ -181,8 +181,9 @@
   <Fragment>
     <ComponentGroup Id="RegistryComponents" Directory="INSTALLFOLDER">
       <Component Id="AppSettingsRegistry" Guid="99887766-5544-3322-1100-AABBCCDDEEFF">
-        <RegistryKey Root="HKLM" Key="SOFTWARE\EntraUserSync">
-          <RegistryValue Name="TenantId" Type="string" Value="[TENANTID]" />
+        <!-- Users can read HKLM\SOFTWARE by default; no PermissionEx needed (avoids WIX0067). -->
+        <RegistryKey Id="AppSettingsRegKey" Root="HKLM" Key="SOFTWARE\EntraUserSync" ForceCreateOnInstall="yes">
+          <RegistryValue Name="TenantId" Type="string" Value="[TENANTID]" KeyPath="yes" />
           <RegistryValue Name="ClientId" Type="string" Value="[CLIENTID]" />
           <RegistryValue Name="CertificateThumbprint" Type="string" Value="[CERTTHUMBPRINT]" />
           <RegistryValue Name="CertificateStore" Type="string" Value="[CERTSTORE]" />
@@ -194,14 +195,11 @@
           <RegistryValue Name="InstallPath" Type="string" Value="[INSTALLFOLDER]" />
           <RegistryValue Name="RunAs" Type="string" Value="LoggedOnUser" />
           <RegistryValue Name="LogonTask" Type="string" Value="EntraUserSync" />
-          <util:PermissionEx User="Users" GenericRead="yes" />
-          <util:PermissionEx User="Administrators" GenericAll="yes" />
-          <util:PermissionEx User="SYSTEM" GenericAll="yes" />
         </RegistryKey>
       </Component>
 
       <Component Id="StatusKey" Guid="D4E5F6A7-B8C9-0123-DEF0-234567890ABC">
-        <RegistryKey Root="HKLM" Key="SOFTWARE\EntraUserSync\Status">
+        <RegistryKey Id="StatusRegKey" Root="HKLM" Key="SOFTWARE\EntraUserSync\Status" ForceCreateOnInstall="yes">
           <RegistryValue Name="Initialized" Type="string" Value="" KeyPath="yes" />
           <util:PermissionEx User="Users" GenericAll="yes" />
           <util:PermissionEx User="Administrators" GenericAll="yes" />
@@ -211,9 +209,9 @@
 
       <!-- Let the user-context agent write Datto CustomN values without running as SYSTEM. -->
       <Component Id="CentraStageKey" Guid="C3D4E5F6-A7B8-9012-CDEF-1234567890AB">
-        <RegistryKey Root="HKLM" Key="SOFTWARE\CentraStage">
+        <RegistryKey Id="CentraStageRegKey" Root="HKLM" Key="SOFTWARE\CentraStage" ForceCreateOnInstall="yes">
           <RegistryValue Name="EntraUserSyncAcl" Type="integer" Value="1" KeyPath="yes" />
-          <util:PermissionEx User="Users" GenericRead="yes" GenericWrite="yes" CreateChild="yes" DeleteChild="yes" />
+          <util:PermissionEx User="Users" GenericRead="yes" GenericWrite="yes" />
           <util:PermissionEx User="Administrators" GenericAll="yes" />
           <util:PermissionEx User="SYSTEM" GenericAll="yes" />
         </RegistryKey>
