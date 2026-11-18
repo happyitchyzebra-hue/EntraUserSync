@@ -86,12 +86,13 @@
     <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
 
     <!--
-      Run as the logged-on user via Task Scheduler (InteractiveToken / S-1-5-4),
-      NOT as a LocalSystem Windows Service.
+      Run as the logged-on user via Task Scheduler (Users / S-1-5-32-545 + InteractiveToken),
+      NOT as a LocalSystem Windows Service. Use full powershell.exe path — bare powershell.exe
+      is fragile under deferred SYSTEM custom actions (MSI Error 1722).
     -->
     <CustomAction Id="RegisterLogonTaskExe"
                   Directory="INSTALLFOLDER"
-                  ExeCommand="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER]Register-LogonTask.ps1&quot; -ExePath &quot;[INSTALLFOLDER]EntraUserSync.exe&quot;"
+                  ExeCommand="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER]Register-LogonTask.ps1&quot; -ExePath &quot;[INSTALLFOLDER]EntraUserSync.exe&quot;"
                   Execute="deferred"
                   Impersonate="no"
                   Return="check" />

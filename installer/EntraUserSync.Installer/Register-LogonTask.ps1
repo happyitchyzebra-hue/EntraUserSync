@@ -1,16 +1,59 @@
-# Registers EntraUserSync to start at user logon in the interactive user context (NOT LocalSystem).
+# Registers EntraUserSync to start at user logon for the Users group (NOT LocalSystem).
+# Deferred MSI custom actions run as SYSTEM; INTERACTIVE (S-1-5-4) fails in that context.
+# Prefer schtasks /RU Users; fall back to XML with GroupId S-1-5-32-545 + InteractiveToken.
 param(
     [Parameter(Mandatory)] [string] $ExePath,
     [string] $TaskName = 'EntraUserSync'
 )
 
-$ErrorActionPreference = 'Stop'
-$exe = $ExePath.TrimEnd('\')
-if (-not (Test-Path -LiteralPath $exe)) {
-    throw "Executable not found: $exe"
+$ErrorActionPreference = 'Continue'
+$logDir = 'C:\ProgramData\EntraUserSync'
+$logPath = Join-Path $logDir 'task-register.log'
+
+function Write-Log {
+    param([string] $Message)
+    $line = '[{0:yyyy-MM-dd HH:mm:ss}] {1}' -f (Get-Date), $Message
+    try {
+        if (-not (Test-Path -LiteralPath $logDir)) {
+            New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+        }
+        Add-Content -LiteralPath $logPath -Value $line -Encoding UTF8
+    } catch {
+        # Best-effort logging; never block registration on log I/O.
+    }
+    Write-Host $line
 }
 
-$xml = @"
+try {
+    $exe = $ExePath.Trim().TrimEnd('\')
+    Write-Log "Register-LogonTask starting. TaskName=$TaskName ExePath=$exe"
+
+    if (-not (Test-Path -LiteralPath $exe)) {
+        Write-Log "ERROR: Executable not found: $exe"
+        exit 1
+    }
+
+    Write-Log "Deleting existing task (if any)..."
+    & schtasks.exe /Delete /TN $TaskName /F 2>&1 | ForEach-Object { Write-Log "  delete: $_" }
+    Write-Log "Delete exit code: $LASTEXITCODE"
+
+    # Primary: create ONLOGON task for the Users group at LIMITED privilege.
+    $tr = "`"$exe`""
+    Write-Log "Trying schtasks /Create /SC ONLOGON /RU Users /RL LIMITED ..."
+    $createOut = & schtasks.exe /Create /TN $TaskName /TR $tr /SC ONLOGON /RU Users /RL LIMITED /F 2>&1
+    $createOut | ForEach-Object { Write-Log "  create: $_" }
+    $createCode = $LASTEXITCODE
+    Write-Log "schtasks /Create exit code: $createCode"
+
+    if ($createCode -eq 0) {
+        Write-Log "SUCCESS: Registered scheduled task '$TaskName' via schtasks /RU Users."
+        exit 0
+    }
+
+    # Fallback: XML with Builtin\Users (S-1-5-32-545) + InteractiveToken + LogonTrigger.
+    Write-Log "Primary create failed; falling back to XML registration (GroupId S-1-5-32-545)..."
+    $escapedExe = [System.Security.SecurityElement]::Escape($exe)
+    $xml = @"
 <?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
@@ -19,7 +62,7 @@ $xml = @"
   </RegistrationInfo>
   <Principals>
     <Principal id="Author">
-      <GroupId>S-1-5-4</GroupId>
+      <GroupId>S-1-5-32-545</GroupId>
       <RunLevel>LeastPrivilege</RunLevel>
       <LogonType>InteractiveToken</LogonType>
     </Principal>
@@ -52,20 +95,34 @@ $xml = @"
   </Triggers>
   <Actions Context="Author">
     <Exec>
-      <Command>$([System.Security.SecurityElement]::Escape($exe))</Command>
+      <Command>$escapedExe</Command>
     </Exec>
   </Actions>
 </Task>
 "@
 
-$temp = Join-Path $env:TEMP "EntraUserSync.task.xml"
-# Task Scheduler XML must be Unicode
-[System.IO.File]::WriteAllText($temp, $xml, [System.Text.Encoding]::Unicode)
+    $temp = Join-Path $env:TEMP "EntraUserSync.task.xml"
+    [System.IO.File]::WriteAllText($temp, $xml, [System.Text.Encoding]::Unicode)
+    Write-Log "Wrote task XML to $temp"
 
-schtasks.exe /Delete /TN $TaskName /F 2>$null | Out-Null
-& schtasks.exe /Create /TN $TaskName /XML $temp /F
-if ($LASTEXITCODE -ne 0) {
-    throw "schtasks /Create failed with exit code $LASTEXITCODE"
+    & schtasks.exe /Delete /TN $TaskName /F 2>&1 | ForEach-Object { Write-Log "  delete-before-xml: $_" }
+
+    $xmlOut = & schtasks.exe /Create /TN $TaskName /XML $temp /F 2>&1
+    $xmlOut | ForEach-Object { Write-Log "  xml-create: $_" }
+    $xmlCode = $LASTEXITCODE
+    Write-Log "schtasks /Create /XML exit code: $xmlCode"
+    Remove-Item -LiteralPath $temp -Force -ErrorAction SilentlyContinue
+
+    if ($xmlCode -eq 0) {
+        Write-Log "SUCCESS: Registered scheduled task '$TaskName' via XML (Users / InteractiveToken)."
+        exit 0
+    }
+
+    Write-Log "ERROR: Both schtasks /RU Users and XML fallback failed (codes $createCode / $xmlCode)."
+    exit 1
 }
-Remove-Item -LiteralPath $temp -Force -ErrorAction SilentlyContinue
-Write-Host "Registered scheduled task '$TaskName' (InteractiveToken / logon)."
+catch {
+    Write-Log "ERROR: $($_.Exception.Message)"
+    Write-Log $_.ScriptStackTrace
+    exit 1
+}
