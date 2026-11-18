@@ -5,8 +5,12 @@
     <OutputName>EntraUserSync-$(Version)</OutputName>
     <InstallerPlatform>x64</InstallerPlatform>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
-    <!-- Populated by build.ps1 after publishing the self-contained service. -->
-    <ServicePublishDir Condition="'$(ServicePublishDir)' == ''">$(MSBuildThisFileDirectory)..\..\artifacts\publish\service\</ServicePublishDir>
+    <ServicePublishDir Condition="'$(ServicePublishDir)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\artifacts\publish\service'))</ServicePublishDir>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <_ServicePublishDirNormalized>$([System.IO.Path]::GetFullPath('$(ServicePublishDir)').TrimEnd('\').TrimEnd('/'))\</_ServicePublishDirNormalized>
+    <DefineConstants>$(DefineConstants);ServicePublishDir=$(_ServicePublishDirNormalized)</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>

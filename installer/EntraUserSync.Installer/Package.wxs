@@ -134,7 +134,7 @@
     <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
       <Component Id="SvcExecutable" Guid="6C2E8F41-1A57-4C9D-9B2E-8D1F3A4B5C60">
         <File Id="EntraUserSync.exe"
-              Source="$(ServicePublishDir)EntraUserSync.exe"
+              Source="$(var.ServicePublishDir)EntraUserSync.exe"
               KeyPath="yes"
               Checksum="yes" />
       </Component>

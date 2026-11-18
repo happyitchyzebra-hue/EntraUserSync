@@ -141,10 +141,12 @@ if (-not $isWindowsHost) {
 
 Write-Host '==> build MSI (WiX v5)' -ForegroundColor Cyan
 $msiProject = Join-Path $root 'installer\EntraUserSync.Installer\EntraUserSync.Installer.wixproj'
+# Avoid trailing backslash escaping PowerShell's closing quote (e.g. -p:ServicePublishDir="...\service\").
+$publishDirForWix = ($publishDir.TrimEnd('\', '/') -replace '\\', '/') + '/'
 dotnet build $msiProject `
     -c $Configuration `
     -p:Version=$Version `
-    -p:ServicePublishDir="$publishDir\"
+    -p:ServicePublishDir=$publishDirForWix
 if ($LASTEXITCODE -ne 0) { throw "MSI build failed ($LASTEXITCODE)" }
 
 $builtMsi = Get-ChildItem -Path (Join-Path $root 'installer\EntraUserSync.Installer\bin') -Filter '*.msi' -Recurse |
