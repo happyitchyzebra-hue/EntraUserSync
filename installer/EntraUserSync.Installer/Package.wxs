@@ -59,22 +59,22 @@
       <RegistrySearch Id="FindClear" Root="HKLM" Key="SOFTWARE\EntraUserSync" Name="ClearFieldWhenEmpty" Type="raw" />
     </Property>
 
-    <SetProperty Id="TENANTID" Value="[SAVED_TENANTID]" After="AppSearch" Sequence="both" Condition="NOT TENANTID AND SAVED_TENANTID" />
-    <SetProperty Id="CLIENTID" Value="[SAVED_CLIENTID]" After="AppSearch" Sequence="both" Condition="NOT CLIENTID AND SAVED_CLIENTID" />
-    <SetProperty Id="CERTTHUMBPRINT" Value="[SAVED_CERTTHUMBPRINT]" After="AppSearch" Sequence="both" Condition="NOT CERTTHUMBPRINT AND SAVED_CERTTHUMBPRINT" />
-    <SetProperty Id="CERTSTORE" Value="[SAVED_CERTSTORE]" After="AppSearch" Sequence="both" Condition="NOT CERTSTORE AND SAVED_CERTSTORE" />
-    <SetProperty Id="CLOUD" Value="[SAVED_CLOUD]" After="AppSearch" Sequence="both" Condition="NOT CLOUD AND SAVED_CLOUD" />
-    <SetProperty Id="FIELDMAPPINGS" Value="[SAVED_FIELDMAPPINGS]" After="AppSearch" Sequence="both" Condition="NOT FIELDMAPPINGS AND SAVED_FIELDMAPPINGS" />
-    <SetProperty Id="ALLOWEDUPNSUFFIXES" Value="[SAVED_ALLOWEDUPNSUFFIXES]" After="AppSearch" Sequence="both" Condition="NOT ALLOWEDUPNSUFFIXES AND SAVED_ALLOWEDUPNSUFFIXES" />
-    <SetProperty Id="SYNCINTERVALMINUTES" Value="[SAVED_SYNCINTERVALMINUTES]" After="AppSearch" Sequence="both" Condition="NOT SYNCINTERVALMINUTES AND SAVED_SYNCINTERVALMINUTES" />
-    <SetProperty Id="CLEARWHENEMPTY" Value="[SAVED_CLEARWHENEMPTY]" After="AppSearch" Sequence="both" Condition="NOT CLEARWHENEMPTY AND SAVED_CLEARWHENEMPTY" />
+    <SetProperty Id="TENANTID" Action="SetTENANTID_Saved" Value="[SAVED_TENANTID]" After="AppSearch" Sequence="both" Condition="NOT TENANTID AND SAVED_TENANTID" />
+    <SetProperty Id="CLIENTID" Action="SetCLIENTID_Saved" Value="[SAVED_CLIENTID]" After="AppSearch" Sequence="both" Condition="NOT CLIENTID AND SAVED_CLIENTID" />
+    <SetProperty Id="CERTTHUMBPRINT" Action="SetCERTTHUMBPRINT_Saved" Value="[SAVED_CERTTHUMBPRINT]" After="AppSearch" Sequence="both" Condition="NOT CERTTHUMBPRINT AND SAVED_CERTTHUMBPRINT" />
+    <SetProperty Id="CERTSTORE" Action="SetCERTSTORE_Saved" Value="[SAVED_CERTSTORE]" After="AppSearch" Sequence="both" Condition="NOT CERTSTORE AND SAVED_CERTSTORE" />
+    <SetProperty Id="CLOUD" Action="SetCLOUD_Saved" Value="[SAVED_CLOUD]" After="AppSearch" Sequence="both" Condition="NOT CLOUD AND SAVED_CLOUD" />
+    <SetProperty Id="FIELDMAPPINGS" Action="SetFIELDMAPPINGS_Saved" Value="[SAVED_FIELDMAPPINGS]" After="AppSearch" Sequence="both" Condition="NOT FIELDMAPPINGS AND SAVED_FIELDMAPPINGS" />
+    <SetProperty Id="ALLOWEDUPNSUFFIXES" Action="SetALLOWEDUPNSUFFIXES_Saved" Value="[SAVED_ALLOWEDUPNSUFFIXES]" After="AppSearch" Sequence="both" Condition="NOT ALLOWEDUPNSUFFIXES AND SAVED_ALLOWEDUPNSUFFIXES" />
+    <SetProperty Id="SYNCINTERVALMINUTES" Action="SetSYNCINTERVALMINUTES_Saved" Value="[SAVED_SYNCINTERVALMINUTES]" After="AppSearch" Sequence="both" Condition="NOT SYNCINTERVALMINUTES AND SAVED_SYNCINTERVALMINUTES" />
+    <SetProperty Id="CLEARWHENEMPTY" Action="SetCLEARWHENEMPTY_Saved" Value="[SAVED_CLEARWHENEMPTY]" After="AppSearch" Sequence="both" Condition="NOT CLEARWHENEMPTY AND SAVED_CLEARWHENEMPTY" />
 
     <!-- Agent runs as the logged-on user → default CurrentUser certificate store. -->
-    <SetProperty Id="CERTSTORE" Value="CurrentUser" After="AppSearch" Sequence="both" Condition="NOT CERTSTORE" />
-    <SetProperty Id="CLOUD" Value="Global" After="AppSearch" Sequence="both" Condition="NOT CLOUD" />
-    <SetProperty Id="FIELDMAPPINGS" Value="department=2;jobTitle=3" After="AppSearch" Sequence="both" Condition="NOT FIELDMAPPINGS" />
-    <SetProperty Id="SYNCINTERVALMINUTES" Value="240" After="AppSearch" Sequence="both" Condition="NOT SYNCINTERVALMINUTES" />
-    <SetProperty Id="CLEARWHENEMPTY" Value="0" After="AppSearch" Sequence="both" Condition="NOT CLEARWHENEMPTY" />
+    <SetProperty Id="CERTSTORE" Action="SetCERTSTORE_Default" Value="CurrentUser" After="AppSearch" Sequence="both" Condition="NOT CERTSTORE" />
+    <SetProperty Id="CLOUD" Action="SetCLOUD_Default" Value="Global" After="AppSearch" Sequence="both" Condition="NOT CLOUD" />
+    <SetProperty Id="FIELDMAPPINGS" Action="SetFIELDMAPPINGS_Default" Value="department=2;jobTitle=3" After="AppSearch" Sequence="both" Condition="NOT FIELDMAPPINGS" />
+    <SetProperty Id="SYNCINTERVALMINUTES" Action="SetSYNCINTERVALMINUTES_Default" Value="240" After="AppSearch" Sequence="both" Condition="NOT SYNCINTERVALMINUTES" />
+    <SetProperty Id="CLEARWHENEMPTY" Action="SetCLEARWHENEMPTY_Default" Value="0" After="AppSearch" Sequence="both" Condition="NOT CLEARWHENEMPTY" />
 
     <Feature Id="ProductFeature" Title="EntraUserSync" Level="1">
       <ComponentGroupRef Id="ProductComponents" />
@@ -96,7 +96,14 @@
                   Impersonate="no"
                   Return="check" />
 
-    <CustomAction Id="UnregisterLogonTask"
+    <CustomAction Id="UnregisterLogonTaskBeforeRegister"
+                  Directory="INSTALLFOLDER"
+                  ExeCommand="cmd.exe /c schtasks /Delete /TN &quot;EntraUserSync&quot; /F"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="ignore" />
+
+    <CustomAction Id="UnregisterLogonTaskOnUninstall"
                   Directory="INSTALLFOLDER"
                   ExeCommand="cmd.exe /c schtasks /Delete /TN &quot;EntraUserSync&quot; /F"
                   Execute="deferred"
@@ -111,9 +118,9 @@
                   Return="ignore" />
 
     <InstallExecuteSequence>
-      <Custom Action="UnregisterLogonTask" Before="RegisterLogonTaskExe" Condition="NOT REMOVE" />
+      <Custom Action="UnregisterLogonTaskBeforeRegister" Before="RegisterLogonTaskExe" Condition="NOT REMOVE" />
       <Custom Action="RegisterLogonTaskExe" After="InstallFiles" Condition="NOT REMOVE" />
-      <Custom Action="UnregisterLogonTask" After="InstallInitialize" Condition="REMOVE=&quot;ALL&quot;" />
+      <Custom Action="UnregisterLogonTaskOnUninstall" After="InstallInitialize" Condition="REMOVE=&quot;ALL&quot;" />
       <Custom Action="CleanupConfig" After="RemoveFiles" Condition="REMOVE=&quot;ALL&quot; AND REMOVECONFIG=&quot;1&quot;" />
     </InstallExecuteSequence>
   </Package>
